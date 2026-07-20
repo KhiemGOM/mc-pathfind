@@ -1,0 +1,262 @@
+{
+  "passed": [
+    {
+      "region": "regions\\k2\\r.-1.-1.mca",
+      "scenario": "real_k2_r_neg1_neg1",
+      "origin": [
+        -256,
+        0,
+        -256
+      ],
+      "chunk_range": [
+        [
+          16,
+          32
+        ],
+        [
+          16,
+          32
+        ]
+      ],
+      "y_range": [
+        0,
+        128
+      ],
+      "start": [
+        255,
+        44,
+        224
+      ],
+      "goal": [
+        224,
+        43,
+        255
+      ],
+      "walkable_states_checked": 889,
+      "goal_walk_reachable": true,
+      "epsilon_attempts": [
+        {
+          "epsilon": 2.0,
+          "max_expansions": 40000,
+          "expansions": 42,
+          "found": true
+        }
+      ],
+      "expansions": 42,
+      "status": "passed",
+      "epsilon_used": 2.0,
+      "cost": 9.763612744978131,
+      "path_nodes": 39,
+      "action_counts": {
+        "CLIMB": 2,
+        "FALL": 3,
+        "MINE": 2,
+        "SPRINT": 31
+      }
+    },
+    {
+      "region": "regions\\k2\\r.-1.0.mca",
+      "scenario": "real_k2_r_neg1_0",
+      "origin": [
+        -256,
+        0,
+        128
+      ],
+      "chunk_range": [
+        [
+          16,
+          32
+        ],
+        [
+          8,
+          24
+        ]
+      ],
+      "y_range": [
+        0,
+        128
+      ],
+      "start": [
+        228,
+        57,
+        64
+      ],
+      "goal": [
+        231,
+        52,
+        0
+      ],
+      "walkable_states_checked": 1659,
+      "goal_walk_reachable": true,
+      "epsilon_attempts": [
+        {
+          "epsilon": 2.0,
+          "max_expansions": 40000,
+          "expansions": 391,
+          "found": true
+        }
+      ],
+      "expansions": 391,
+      "status": "passed",
+      "epsilon_used": 2.0,
+      "cost": 16.37201091440808,
+      "path_nodes": 66,
+      "action_counts": {
+        "CLIMB": 10,
+        "FALL": 12,
+        "SPRINT": 43
+      }
+    },
+    {
+      "region": "regions\\k2\\r.0.-1.mca",
+      "scenario": "real_k2_r_0_neg1",
+      "origin": [
+        128,
+        0,
+        -256
+      ],
+      "chunk_range": [
+        [
+          8,
+          24
+        ],
+        [
+          16,
+          32
+        ]
+      ],
+      "y_range": [
+        0,
+        128
+      ],
+      "start": [
+        159,
+        63,
+        227
+      ],
+      "goal": [
+        255,
+        50,
+        255
+      ],
+      "walkable_states_checked": 2460,
+      "goal_walk_reachable": true,
+      "epsilon_attempts": [
+        {
+          "epsilon": 2.0,
+          "max_expansions": 40000,
+          "expansions": 242,
+          "found": true
+        }
+      ],
+      "expansions": 242,
+      "status": "passed",
+      "epsilon_used": 2.0,
+      "cost": 25.412096223292718,
+      "path_nodes": 101,
+      "action_counts": {
+        "CLIMB": 5,
+        "FALL": 13,
+        "PARKOUR": 1,
+        "SPRINT": 81
+      }
+    },
+    {
+      "region": "regions\\k2\\r.0.0.mca",
+      "scenario": "real_k2_r_0_0",
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "chunk_range": [
+        [
+          0,
+          23
+        ],
+        [
+          0,
+          23
+        ]
+      ],
+      "y_range": [
+        0,
+        128
+      ],
+      "start": [
+        129,
+        49,
+        1
+      ],
+      "goal": [
+        324,
+        40,
+        306
+      ],
+      "walkable_states_checked": 54759,
+      "goal_walk_reachable": true,
+      "epsilon_attempts": [
+        {
+          "epsilon": 2.0,
+          "max_expansions": 40000,
+          "expansions": 40001,
+          "found": false
+        },
+        {
+          "epsilon": 3.5,
+          "max_expansions": 100000,
+          "expansions": 100001,
+          "found": false
+        },
+        {
+          "epsilon": 5.0,
+          "max_expansions": 200000,
+          "expansions": 70354,
+          "found": true
+        }
+      ],
+      "expansions": 70354,
+      "status": "passed",
+      "epsilon_used": 5.0,
+      "cost": 304.30050304405125,
+      "path_nodes": 447,
+      "action_counts": {
+        "BOAT_CRAWL": 147,
+        "BRIDGE": 4,
+        "CLIMB": 20,
+        "FALL": 10,
+        "MINE": 179,
+        "MINE_DOWN": 22,
+        "PARKOUR": 11,
+        "SPRINT": 53
+      }
+    }
+  ],
+  "failed": [
+    {
+      "region": "regions\\k2\\r.-1.1.mca",
+      "status": "failed",
+      "error": "no supported-air start/goal could be selected"
+    },
+    {
+      "region": "regions\\k2\\r.1.-1.mca",
+      "status": "failed",
+      "error": "no supported-air start/goal could be selected"
+    },
+    {
+      "region": "regions\\k2\\r.0.1.mca",
+      "status": "failed",
+      "error": "no supported-air start/goal could be selected"
+    },
+    {
+      "region": "regions\\k2\\r.1.1.mca",
+      "status": "failed",
+      "error": "no supported-air start/goal could be selected"
+    },
+    {
+      "region": "regions\\k2\\r.1.0.mca",
+      "status": "failed",
+      "error": "no supported-air start/goal could be selected"
+    }
+  ]
+}

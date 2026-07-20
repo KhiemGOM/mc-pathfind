@@ -1,0 +1,155 @@
+{
+  "passed": [
+    {
+      "region": "regions\\k1\\r.-1.-1.mca",
+      "scenario": "real_k1_r_neg1_neg1",
+      "origin": [
+        -384,
+        0,
+        -384
+      ],
+      "chunk_range": [
+        8,
+        24
+      ],
+      "y_range": [
+        0,
+        128
+      ],
+      "start": [
+        219,
+        58,
+        238
+      ],
+      "goal": [
+        255,
+        57,
+        255
+      ],
+      "walkable_states_checked": 997,
+      "goal_walk_reachable": true,
+      "expansions": 40,
+      "status": "passed",
+      "cost": 8.049819620218457,
+      "path_nodes": 40,
+      "action_counts": {
+        "FALL": 1,
+        "SPRINT": 38
+      }
+    },
+    {
+      "region": "regions\\k1\\r.-1.0.mca",
+      "scenario": "real_k1_r_neg1_0",
+      "origin": [
+        -384,
+        0,
+        128
+      ],
+      "chunk_range": [
+        8,
+        24
+      ],
+      "y_range": [
+        0,
+        128
+      ],
+      "start": [
+        208,
+        53,
+        7
+      ],
+      "goal": [
+        235,
+        32,
+        63
+      ],
+      "walkable_states_checked": 1314,
+      "goal_walk_reachable": true,
+      "expansions": 354,
+      "status": "passed",
+      "cost": 21.965052286333226,
+      "path_nodes": 73,
+      "action_counts": {
+        "CLIMB": 10,
+        "FALL": 14,
+        "MINE": 1,
+        "PARKOUR": 1,
+        "SPRINT": 46
+      }
+    },
+    {
+      "region": "regions\\k1\\r.0.-1.mca",
+      "scenario": "real_k1_r_0_neg1",
+      "origin": [
+        128,
+        0,
+        -384
+      ],
+      "chunk_range": [
+        8,
+        24
+      ],
+      "y_range": [
+        0,
+        128
+      ],
+      "start": [
+        10,
+        65,
+        247
+      ],
+      "goal": [
+        14,
+        58,
+        239
+      ],
+      "walkable_states_checked": 85,
+      "goal_walk_reachable": true,
+      "expansions": 9,
+      "status": "passed",
+      "cost": 2.074438258837925,
+      "path_nodes": 9,
+      "action_counts": {
+        "FALL": 7,
+        "SPRINT": 1
+      }
+    },
+    {
+      "region": "regions\\k1\\r.0.0.mca",
+      "scenario": "real_k1_r_0_0",
+      "origin": [
+        128,
+        0,
+        128
+      ],
+      "chunk_range": [
+        8,
+        24
+      ],
+      "y_range": [
+        0,
+        128
+      ],
+      "start": [
+        1,
+        57,
+        22
+      ],
+      "goal": [
+        3,
+        57,
+        22
+      ],
+      "walkable_states_checked": 3,
+      "goal_walk_reachable": true,
+      "expansions": 3,
+      "status": "passed",
+      "cost": 0.35714285714285715,
+      "path_nodes": 3,
+      "action_counts": {
+        "SPRINT": 2
+      }
+    }
+  ],
+  "failed": []
+}

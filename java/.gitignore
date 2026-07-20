@@ -1,0 +1,6 @@
+.gradle/
+build/
+out/
+*.wbin
+!src/test/resources/fixtures/*.wbin
+!benchmark/data/lab/*.wbin

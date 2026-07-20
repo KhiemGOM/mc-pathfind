@@ -1,0 +1,27 @@
+# Java build output (regenerate via javac -- see java/README.md)
+*.class
+
+# Python bytecode cache
+__pycache__/
+*.pyc
+
+# JFR profiling snapshots
+*.jfr
+
+# .wbin exports: see java/.gitignore (excludes real-terrain exports, which
+# are large and regenerable from regions/*.mca, but keeps the small
+# hand-built lab-world fixtures under java/benchmark/data/lab/).
+
+# Vendored jars -- fetch via Gradle/Maven Central instead (see java/README.md).
+*.jar
+
+# Local Claude Code session state (machine-specific paths, not portable).
+.claude/settings.local.json
+
+# Runtime config exported by/for the separate HolyChip bot this pathfinder
+# feeds -- mixes bot-runtime knobs (snapshot/locate/poll settings) that have
+# no corresponding code in this repo, so it doesn't belong in a standalone
+# publish. The pure pathfinding constants it overlaps with (sprint/boat-crawl/
+# parkour speeds, bridge risk, etc.) already live in pathfind.py and
+# WeightedAStar.java as the canonical source.
+config/

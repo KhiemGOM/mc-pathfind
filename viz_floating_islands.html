@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>MC pathfinding - multi-scenario 3D voxel A* visualization</title>
+<style>
+  html, body { margin:0; padding:0; background:#0a0a0a; overflow:hidden; font-family: -apple-system, "Segoe UI", sans-serif; }
+  #canvas-wrap { position: fixed; inset: 0; }
+  #tabs {
+    position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 11;
+    display: flex; flex-wrap: wrap; gap: 4px; background: rgba(15,15,15,0.9); border: 1px solid rgba(0,229,255,0.3);
+    border-radius: 8px; padding: 4px; max-width: 90vw; justify-content: center;
+  }
+  #tabs button {
+    background: transparent; border: none; color: #8899aa; font-size: 11px;
+    padding: 6px 10px; border-radius: 6px; cursor: pointer; white-space: nowrap;
+  }
+  #tabs button.active { background: rgba(0,229,255,0.18); color: #00e5ff; }
+  #tabs button:hover:not(.active) { color: #cddde8; }
+  #hud {
+    position: fixed; top: 60px; left: 12px; z-index: 10;
+    background: rgba(15,15,15,0.85); border: 1px solid rgba(0,229,255,0.35);
+    border-radius: 8px; padding: 12px 16px; color: #dfefff; font-size: 13px;
+    max-width: 300px; backdrop-filter: blur(4px);
+  }
+  #hud h1 { font-size: 13px; margin: 0 0 8px; color: #00e5ff; font-weight: 600; letter-spacing: 0.02em; }
+  #hud .row { display:flex; justify-content:space-between; gap:12px; margin: 2px 0; }
+  #hud .label { color: #8fa; opacity:0.6; }
+  #legend { margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px; }
+  #legend .item { display:flex; align-items:center; gap:6px; margin: 3px 0; font-size:12px; }
+  #legend .sw { width:10px; height:10px; border-radius:2px; flex-shrink:0; }
+  #replan-log { margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px; max-height: 140px; overflow-y: auto; }
+  #replan-log .entry { font-size: 11px; color: #ffd166; margin: 2px 0; }
+  #controls {
+    position: fixed; bottom: 12px; left: 12px; z-index: 10;
+    background: rgba(15,15,15,0.85); border: 1px solid rgba(0,229,255,0.35);
+    border-radius: 8px; padding: 10px 14px; color: #dfefff; font-size: 12px;
+    display:flex; align-items:center; gap:10px;
+  }
+  #controls button {
+    background: rgba(0,229,255,0.12); border: 1px solid rgba(0,229,255,0.4); color:#00e5ff;
+    border-radius:6px; padding:5px 10px; cursor:pointer; font-size:12px;
+  }
+  #controls button:hover { background: rgba(0,229,255,0.25); }
+  #controls input[type=range] { width: 160px; }
+  #step-label { min-width: 130px; }
+  #hint { position: fixed; top: 12px; right: 12px; z-index:10; color:#556; font-size:11px; text-align:right; }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="tabs"></div>
+<div id="hud">
+  <h1 id="scenario-title">SCENARIO</h1>
+  <div class="row"><span class="label">algorithm</span><span>weighted A* (eps=1.5)</span></div>
+  <div class="row"><span class="label">path cost</span><span id="cost-val">-</span></div>
+  <div class="row"><span class="label">nodes expanded</span><span id="exp-val">-</span></div>
+  <div class="row"><span class="label">path length</span><span id="len-val">-</span></div>
+  <div id="legend">
+    <div class="item"><div class="sw" style="background:#7ee787"></div>SPRINT</div>
+    <div class="item"><div class="sw" style="background:#ff6b6b"></div>MINE</div>
+    <div class="item"><div class="sw" style="background:#00e5ff"></div>BRIDGE</div>
+    <div class="item"><div class="sw" style="background:#ff9f1a"></div>BRIDGE_UP</div>
+    <div class="item"><div class="sw" style="background:#ffd166"></div>CLIMB / FALL</div>
+    <div class="item"><div class="sw" style="background:#c678dd"></div>BOAT_CRAWL</div>
+    <div class="item"><div class="sw" style="background:#ff8fd6"></div>PARKOUR</div>
+  </div>
+  <div id="replan-log" style="display:none"></div>
+</div>
+<div id="hint">drag to rotate &middot; scroll to zoom &middot; right-drag to pan</div>
+<div id="controls">
+  <button id="play-btn">play</button>
+  <input type="range" id="step-slider" min="0" max="1" value="0" step="1">
+  <span id="step-label">step 0 / 0</span>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const SCENARIOS = {"floating_islands": {"dims": [30, 25, 7], "blocks": [[1, 7, 0, 1], [1, 7, 1, 1], [1, 7, 2, 1], [1, 7, 3, 1], [1, 7, 4, 1], [1, 7, 5, 1], [1, 7, 6, 1], [2, 7, 0, 1], [2, 7, 1, 1], [2, 7, 2, 1], [2, 7, 3, 1], [2, 7, 4, 1], [2, 7, 5, 1], [2, 7, 6, 1], [3, 7, 0, 1], [3, 7, 1, 1], [3, 7, 2, 1], [3, 7, 3, 1], [3, 7, 4, 1], [3, 7, 5, 1], [3, 7, 6, 1], [4, 7, 0, 1], [4, 7, 1, 1], [4, 7, 2, 1], [4, 7, 3, 1], [4, 7, 4, 1], [4, 7, 5, 1], [4, 7, 6, 1], [13, 12, 0, 1], [13, 12, 1, 1], [13, 12, 2, 1], [13, 12, 3, 1], [13, 12, 4, 1], [13, 12, 5, 1], [13, 12, 6, 1], [14, 12, 0, 1], [14, 12, 1, 1], [14, 12, 2, 1], [14, 12, 3, 1], [14, 12, 4, 1], [14, 12, 5, 1], [14, 12, 6, 1], [15, 12, 0, 1], [15, 12, 1, 1], [15, 12, 2, 1], [15, 12, 3, 1], [15, 12, 4, 1], [15, 12, 5, 1], [15, 12, 6, 1], [16, 12, 0, 1], [16, 12, 1, 1], [16, 12, 2, 1], [16, 12, 3, 1], [16, 12, 4, 1], [16, 12, 5, 1], [16, 12, 6, 1], [25, 17, 0, 1], [25, 17, 1, 1], [25, 17, 2, 1], [25, 17, 3, 1], [25, 17, 4, 1], [25, 17, 5, 1], [25, 17, 6, 1], [26, 17, 0, 1], [26, 17, 1, 1], [26, 17, 2, 1], [26, 17, 3, 1], [26, 17, 4, 1], [26, 17, 5, 1], [26, 17, 6, 1], [27, 17, 0, 1], [27, 17, 1, 1], [27, 17, 2, 1], [27, 17, 3, 1], [27, 17, 4, 1], [27, 17, 5, 1], [27, 17, 6, 1], [28, 17, 0, 1], [28, 17, 1, 1], [28, 17, 2, 1], [28, 17, 3, 1], [28, 17, 4, 1], [28, 17, 5, 1], [28, 17, 6, 1]], "path": [[3, 8, 3, 32], [4, 8, 3, 32], [5, 8, 3, 31], [6, 8, 3, 30], [7, 8, 3, 29], [8, 8, 3, 28], [9, 8, 3, 27], [10, 8, 3, 26], [11, 8, 3, 25], [12, 8, 3, 24], [13, 8, 3, 23], [14, 8, 3, 22], [15, 8, 3, 21], [16, 8, 3, 20], [17, 8, 3, 19], [18, 8, 3, 18], [18, 9, 3, 17], [18, 10, 3, 16], [19, 10, 3, 15], [20, 10, 3, 14], [21, 10, 3, 13], [21, 11, 3, 12], [21, 12, 3, 11], [21, 13, 3, 10], [21, 14, 3, 9], [21, 15, 3, 8], [21, 16, 3, 7], [21, 17, 3, 6], [22, 17, 3, 5], [23, 17, 3, 4], [24, 17, 3, 3], [25, 18, 3, 3], [26, 18, 3, 3], [27, 18, 3, 3]], "actions": ["SPRINT", "BRIDGE", "BRIDGE", "BRIDGE", "BRIDGE", "BRIDGE", "BRIDGE", "BRIDGE", "BRIDGE", "BRIDGE", "BRIDGE", "BRIDGE", "BRIDGE", "BRIDGE", "BRIDGE", "BRIDGE_UP", "BRIDGE_UP", "BRIDGE", "BRIDGE", "BRIDGE", "BRIDGE_UP", "BRIDGE_UP", "BRIDGE_UP", "BRIDGE_UP", "BRIDGE_UP", "BRIDGE_UP", "BRIDGE_UP", "BRIDGE", "BRIDGE", "BRIDGE", "CLIMB", "SPRINT", "SPRINT"], "start": [3, 8, 3], "goal": [27, 18, 3], "cost": 61.9910056375, "expansions": 13909, "replans": []}};
+
+const SCENARIO_LABELS = {"mixed_terrain": "Mixed terrain", "giant_wall": "Giant wall (find gap)", "bridge_chasm": "Bridging chasm", "replanning_wall": "Replanning (limited sight)", "cave_shortcut_wins": "Cave shortcut (mining wins)", "detour_wins": "Cave shortcut (detour wins)", "tunnel_vs_bridge": "Tunnel vs bridge (tax demo)", "boat_crawl_demo": "Boat crawl vs 2-tall mine", "lava_lake_demo": "Lava lake (bridge only)", "parkour_demo": "Parkour (long jump)", "parkour_blocked_demo": "Parkour (blocked by wall)", "floating_islands": "floating_islands"};
+const SCENARIO_ORDER = ["floating_islands"];
+
+const BLOCK_COLORS = { 1: 0x6b4a2f, 2: 0x8a8a8a, 3: 0x1a0a2e, 4: 0x2b2b2b, 5: 0xff4500 };
+const ACTION_COLORS = {
+  SPRINT: 0x7ee787, MINE: 0xff6b6b, MINE_DOWN: 0xff6b6b,
+  BRIDGE: 0x00e5ff, BRIDGE_UP: 0xff9f1a, CLIMB: 0xffd166, FALL: 0xffd166, START: 0xffffff,
+  BOAT_CRAWL: 0xc678dd, PARKOUR: 0xff8fd6
+};
+
+let scene, camera, renderer, spherical, target;
+let currentWorldGroup = null;
+let pathGroup = null;
+let segMeshes = [], lineSegs = [];
+let currentScenarioKey = SCENARIO_ORDER[0];
+let currentStep = 0;
+let playing = false, playTimer = null;
+let markerMeshes = [];
+let replanMarkers = [];
+
+function initThree() {
+  scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0x0a0a0a, 40, 180);
+
+  camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 600);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x0a0a0a);
+  document.getElementById('canvas-wrap').appendChild(renderer.domElement);
+
+  scene.add(new THREE.AmbientLight(0x8899aa, 0.7));
+  const dl = new THREE.DirectionalLight(0xffffff, 0.6);
+  dl.position.set(30, 50, 20);
+  scene.add(dl);
+  const dl2 = new THREE.DirectionalLight(0x3399ff, 0.25);
+  dl2.position.set(-20, 10, -30);
+  scene.add(dl2);
+
+  const dom = renderer.domElement;
+  let isDragging = false, isPanning = false, lastX = 0, lastY = 0;
+  dom.addEventListener('mousedown', e => {
+    if (e.button === 2) { isPanning = true; } else { isDragging = true; }
+    lastX = e.clientX; lastY = e.clientY;
+  });
+  window.addEventListener('mouseup', () => { isDragging = false; isPanning = false; });
+  window.addEventListener('mousemove', e => {
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    if (isDragging) {
+      spherical.theta -= dx * 0.006;
+      spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi - dy * 0.006));
+      updateCamera();
+    } else if (isPanning) {
+      const panSpeed = 0.05;
+      const offset = new THREE.Vector3().setFromSpherical(spherical);
+      const forward = offset.clone().normalize();
+      const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
+      const up = new THREE.Vector3().crossVectors(right, forward).normalize();
+      target.addScaledVector(right, -dx * panSpeed);
+      target.addScaledVector(up, dy * panSpeed);
+      updateCamera();
+    }
+    lastX = e.clientX; lastY = e.clientY;
+  });
+  dom.addEventListener('contextmenu', e => e.preventDefault());
+  dom.addEventListener('wheel', e => {
+    e.preventDefault();
+    spherical.radius = Math.max(4, Math.min(260, spherical.radius + e.deltaY * 0.05));
+    updateCamera();
+  }, { passive: false });
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+}
+
+function updateCamera() {
+  const pos = new THREE.Vector3().setFromSpherical(spherical).add(target);
+  camera.position.copy(pos);
+  camera.lookAt(target);
+}
+
+function clearScene() {
+  if (currentWorldGroup) { scene.remove(currentWorldGroup); currentWorldGroup = null; }
+  if (pathGroup) { scene.remove(pathGroup); pathGroup = null; }
+  markerMeshes.forEach(m => scene.remove(m));
+  markerMeshes = [];
+  replanMarkers.forEach(m => scene.remove(m));
+  replanMarkers = [];
+  segMeshes = []; lineSegs = [];
+}
+
+function loadScenario(key) {
+  clearScene();
+  currentScenarioKey = key;
+  const DATA = SCENARIOS[key];
+
+  const DX = DATA.dims[0], DY = DATA.dims[1], DZ = DATA.dims[2];
+  const cx = DX/2, cy = DY/2, cz = DZ/2;
+
+  target = new THREE.Vector3(cx, cy, cz);
+  spherical = new THREE.Spherical(Math.max(DX,DZ) * 1.15, 1.0, 0.7);
+  updateCamera();
+
+  currentWorldGroup = new THREE.Group();
+  const boxGeo = new THREE.BoxGeometry(0.98, 0.98, 0.98);
+  const byType = {};
+  for (const b of DATA.blocks) {
+    const x=b[0], y=b[1], z=b[2], t=b[3];
+    (byType[t] = byType[t] || []).push([x,y,z]);
+  }
+  for (const t in byType) {
+    const list = byType[t];
+    const mat = new THREE.MeshLambertMaterial({ color: BLOCK_COLORS[t] || 0x888888 });
+    const mesh = new THREE.InstancedMesh(boxGeo, mat, list.length);
+    const dummy = new THREE.Object3D();
+    list.forEach((p, i) => {
+      dummy.position.set(p[0], p[1], p[2]);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    currentWorldGroup.add(mesh);
+  }
+  scene.add(currentWorldGroup);
+
+  const path = DATA.path;
+  const actions = DATA.actions;
+
+  pathGroup = new THREE.Group();
+  scene.add(pathGroup);
+
+  const sphereGeo = new THREE.SphereGeometry(0.18, 12, 12);
+  for (let i = 0; i < path.length; i++) {
+    const x=path[i][0], y=path[i][1], z=path[i][2];
+    const actionColor = i === 0 ? ACTION_COLORS.START : (ACTION_COLORS[actions[i-1]] || 0xffffff);
+    const mat = new THREE.MeshBasicMaterial({ color: actionColor });
+    const sphere = new THREE.Mesh(sphereGeo, mat);
+    sphere.position.set(x, y + 0.55, z);
+    sphere.visible = false;
+    pathGroup.add(sphere);
+    segMeshes.push(sphere);
+  }
+
+  for (let i = 0; i < path.length - 1; i++) {
+    const x0=path[i][0], y0=path[i][1], z0=path[i][2];
+    const x1=path[i+1][0], y1=path[i+1][1], z1=path[i+1][2];
+    const color = ACTION_COLORS[actions[i]] || 0xffffff;
+    const from = new THREE.Vector3(x0, y0+0.55, z0);
+    const to = new THREE.Vector3(x1, y1+0.55, z1);
+    const delta = new THREE.Vector3().subVectors(to, from);
+    const length = delta.length() || 0.0001;
+    // ArrowHelper instead of a plain line so a long, near-vertical FALL
+    // (a single edge can drop many blocks in this model, see README) reads
+    // unambiguously as "moving toward the arrowhead", not as an undirected
+    // segment that's easy to misread as going the other way. Cap the
+    // head size instead of using ArrowHelper's default proportional
+    // (length * 0.2) sizing, so a 9-block fall doesn't grow a
+    // disproportionately huge cone compared to a 1-block sprint step.
+    const headLength = Math.min(0.35, length * 0.5);
+    const headWidth = Math.min(0.2, length * 0.3);
+    const arrow = new THREE.ArrowHelper(delta.clone().normalize(), from, length, color, headLength, headWidth);
+    arrow.line.material.linewidth = 2;
+    arrow.visible = false;
+    pathGroup.add(arrow);
+    lineSegs.push(arrow);
+  }
+
+  function makeMarker(pos, color) {
+    const geo = new THREE.OctahedronGeometry(0.45);
+    const mat = new THREE.MeshBasicMaterial({ color });
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(pos[0], pos[1] + 0.6, pos[2]);
+    scene.add(m);
+    markerMeshes.push(m);
+    return m;
+  }
+  makeMarker(DATA.start, 0xffffff);
+  makeMarker(DATA.goal, 0xff33aa);
+
+  const replanLog = document.getElementById('replan-log');
+  if (DATA.replans && DATA.replans.length > 0) {
+    replanLog.style.display = 'block';
+    replanLog.innerHTML = '<div style="font-size:11px;color:#8fa;opacity:0.6;margin-bottom:4px">REPLAN EVENTS (' + DATA.replans.length + ')</div>';
+    DATA.replans.forEach((r, idx) => {
+      const div = document.createElement('div');
+      div.className = 'entry';
+      div.textContent = (idx+1) + '. ' + r.reason + ' @ (' + r.at.join(',') + ')';
+      replanLog.appendChild(div);
+      const geo = new THREE.RingGeometry(0.5, 0.65, 16);
+      const mat = new THREE.MeshBasicMaterial({ color: 0xffd166, side: THREE.DoubleSide, transparent: true, opacity: 0.7 });
+      const ring = new THREE.Mesh(geo, mat);
+      ring.position.set(r.at[0], r.at[1] + 0.5, r.at[2]);
+      ring.rotation.x = Math.PI / 2;
+      scene.add(ring);
+      replanMarkers.push(ring);
+    });
+  } else {
+    replanLog.style.display = 'none';
+    replanLog.innerHTML = '';
+  }
+
+  document.getElementById('scenario-title').textContent = SCENARIO_LABELS[key].toUpperCase();
+  document.getElementById('cost-val').textContent = (typeof DATA.cost === 'number' ? DATA.cost.toFixed(2) + 's (sim)' : DATA.cost);
+  document.getElementById('exp-val').textContent = DATA.expansions.toString();
+  document.getElementById('len-val').textContent = path.length + ' nodes';
+
+  const slider = document.getElementById('step-slider');
+  slider.max = path.length - 1;
+  showStep(path.length - 1);
+
+  document.querySelectorAll('#tabs button').forEach(b => {
+    b.classList.toggle('active', b.dataset.key === key);
+  });
+}
+
+function showStep(n) {
+  currentStep = n;
+  for (let i = 0; i < segMeshes.length; i++) segMeshes[i].visible = i <= n;
+  for (let i = 0; i < lineSegs.length; i++) lineSegs[i].visible = i < n;
+  const path = SCENARIOS[currentScenarioKey].path;
+  document.getElementById('step-label').textContent = "step " + n + " / " + (path.length - 1);
+  document.getElementById('step-slider').value = n;
+}
+
+function setupUI() {
+  const tabs = document.getElementById('tabs');
+  SCENARIO_ORDER.forEach(key => {
+    const btn = document.createElement('button');
+    btn.textContent = SCENARIO_LABELS[key];
+    btn.dataset.key = key;
+    btn.onclick = () => { stopPlayback(); loadScenario(key); };
+    tabs.appendChild(btn);
+  });
+
+  const slider = document.getElementById('step-slider');
+  slider.addEventListener('input', () => showStep(parseInt(slider.value)));
+
+  const playBtn = document.getElementById('play-btn');
+  playBtn.addEventListener('click', () => {
+    if (playing) { stopPlayback(); return; }
+    playing = true; playBtn.textContent = 'pause';
+    const path = SCENARIOS[currentScenarioKey].path;
+    if (currentStep >= path.length - 1) showStep(0);
+    playTimer = setInterval(() => {
+      const path = SCENARIOS[currentScenarioKey].path;
+      if (currentStep >= path.length - 1) { stopPlayback(); return; }
+      showStep(currentStep + 1);
+    }, 180);
+  });
+}
+
+function stopPlayback() {
+  clearInterval(playTimer);
+  playing = false;
+  document.getElementById('play-btn').textContent = 'play';
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  renderer.render(scene, camera);
+}
+
+initThree();
+setupUI();
+loadScenario(SCENARIO_ORDER[0]);
+animate();
+</script>
+</body>
+</html>

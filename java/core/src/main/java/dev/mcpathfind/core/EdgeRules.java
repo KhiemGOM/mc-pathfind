@@ -460,6 +460,77 @@ public final class EdgeRules {
     public static void horizontalEdges(World world, int x, int y, int z, int blocks, boolean crawling,
                                         int dx, int dz, double toolMultiplier, AirPotential airPotential,
                                         boolean manhattanPruneEnabled, GoalPoints goal, EdgeConsumer out) {
+        horizontalEdges(world, x, y, z, blocks, crawling, dx, dz, toolMultiplier, airPotential,
+                manhattanPruneEnabled, goal, false, out);
+    }
+
+    /**
+     * EXPERIMENTAL tunables for the NearestAirDistance A/B arm -- see its
+     * class javadoc. Not deeply tuned, just checked against an obviously bad
+     * default: a light sweep (radius 1/2/3/4/6) on 2 regions found
+     * radius<=2 reproduces MANHATTAN's quality loss (e.g. long1_r_0_0 cost
+     * 72.93 vs the true 69.66), while radius>=3 recovers optimal cost on
+     * both swept regions with expansions still modestly below NONE's. 3
+     * chosen as the smallest radius that doesn't cost path quality on
+     * either swept region -- not swept further than that.
+     */
+    public static int NEAREST_AIR_MAX_RADIUS = 6;
+    public static int NEAREST_AIR_PRUNE_RADIUS = 3;
+
+    /**
+     * Same as the MANHATTAN overload, but adds a THIRD, independent,
+     * EXPERIMENTAL MINE prune: nearestAirPruneEnabled=true skips a MINE
+     * candidate unless NearestAirDistance says open space is within
+     * NEAREST_AIR_PRUNE_RADIUS blocks (straight-line, source cell
+     * excluded -- see that class's javadoc for why the exclusion is
+     * required). This exists purely to be A/B'd against AirPotential
+     * (chunk-BFS connectivity) and MANHATTAN (distance to goal) for a
+     * blog comparison -- not a production option, never combined with the
+     * other two in practice (WeightedAStar.minePruneMode is one arm at a
+     * time), but the prune checks still short-circuit in the same
+     * left-to-right order as the other two if a caller ever did combine
+     * them.
+     */
+    public static void horizontalEdges(World world, int x, int y, int z, int blocks, boolean crawling,
+                                        int dx, int dz, double toolMultiplier, AirPotential airPotential,
+                                        boolean manhattanPruneEnabled, GoalPoints goal,
+                                        boolean nearestAirPruneEnabled, EdgeConsumer out) {
+        horizontalEdges(world, x, y, z, blocks, crawling, dx, dz, toolMultiplier, airPotential,
+                manhattanPruneEnabled, goal, nearestAirPruneEnabled, null, null, out);
+    }
+
+    /**
+     * EXPERIMENTAL tunables for the HYBRID A/B arm -- see its branch's
+     * comment below and StoneDensityField's javadoc. Not deeply tuned.
+     */
+    public static double HYBRID_STONE_DENSITY_THRESHOLD = 0.35;
+
+    /**
+     * Same as the NEAREST_AIR overload, but adds a FOURTH, independent,
+     * EXPERIMENTAL MINE prune: hybridDensityField != null (both it and
+     * hybridAirPotential are non-null together, or both null -- same
+     * "non-null means enabled" convention as airPotential's own field, both
+     * built once in WeightedAStar.search()'s setup) switches between
+     * AirPotential (cheap, O(1) chunk-BFS lookup -- wins on average across
+     * long open-terrain routes) and NearestAirDistance (never measured
+     * worse than no pruning at all, but O(radius^3) per candidate) based on
+     * StoneDensityField's O(1) local density lookup: below
+     * HYBRID_STONE_DENSITY_THRESHOLD, this is ordinary open terrain, so use
+     * the cheap AirPotential check; at or above it, this is real bastion
+     * wall material (not just generically solid terrain -- see
+     * StoneDensityField's javadoc for why STONE-density and not isSolid()-
+     * density), so pay NearestAirDistance's extra cost only here, where
+     * AirPotential's chunk-BFS novelty signal was empirically found to lose
+     * its discriminating power (measured on a real bastion-interior route:
+     * AirPotential alone was worse than no pruning on cost, expansions, AND
+     * wall-clock all at once).
+     */
+    public static void horizontalEdges(World world, int x, int y, int z, int blocks, boolean crawling,
+                                        int dx, int dz, double toolMultiplier, AirPotential airPotential,
+                                        boolean manhattanPruneEnabled, GoalPoints goal,
+                                        boolean nearestAirPruneEnabled,
+                                        AirPotential hybridAirPotential, StoneDensityField hybridDensityField,
+                                        EdgeConsumer out) {
         int nx = x + dx, nz = z + dz;
         if (nx < 0 || nx >= world.sizeX || nz < 0 || nz >= world.sizeZ) {
             return;
@@ -493,6 +564,18 @@ public final class EdgeRules {
                 // decrease Manhattan distance to the goal -- skip it. Much
                 // cheaper than AirPotential (no BFS lookup) but blunter: it
                 // has no "new pocket" concept, only "closer to goal or not".
+            } else if (nearestAirPruneEnabled && NearestAirDistance.shouldPrune(world, nx, y, nz, x, y, z,
+                    NEAREST_AIR_MAX_RADIUS, NEAREST_AIR_PRUNE_RADIUS)) {
+                // EXPERIMENTAL third arm -- see NearestAirDistance's javadoc.
+                // No open space within the prune radius (as the crow flies,
+                // not maze-aware) -- skip it.
+            } else if (hybridDensityField != null && (hybridDensityField.densityAt(nx, y, nz) >= HYBRID_STONE_DENSITY_THRESHOLD
+                    ? NearestAirDistance.shouldPrune(world, nx, y, nz, x, y, z, NEAREST_AIR_MAX_RADIUS, NEAREST_AIR_PRUNE_RADIUS)
+                    : (hybridAirPotential != null && hybridAirPotential.shouldPruneMine(MINE_PRUNE_THRESHOLD, x, y, z, nx, y, nz)))) {
+                // EXPERIMENTAL fourth arm -- see the horizontalEdges overload
+                // javadoc above. Density-gated: NearestAirDistance's more
+                // expensive check only near real bastion wall material,
+                // AirPotential's cheap O(1) check everywhere else.
             } else {
                 // Mining and moving happen CONCURRENTLY (you can sprint
                 // while mining), not sequentially -- the movement time

@@ -23,10 +23,9 @@ import numpy as np
 from world import (
     generate_world, generate_wall_world, generate_bridge_world,
     generate_cave_shortcut_world, standing_y,
-    AIR, DIRT, STONE, OBSIDIAN, LAVA, BEDROCK,
+    AIR, DIRT, STONE, OBSIDIAN, BEDROCK,
 )
 from pathfind import weighted_astar
-from replan import replanning_run
 
 
 # Search difficulty varies wildly across real regions (a few dozen blocks of
@@ -331,24 +330,6 @@ def build_all_scenarios(mca_files=None):
     scenarios["giant_wall"] = export_scenario(w2, p2, a2, s2, g2, c2, e2)
     print(f"giant_wall: cost={c2:.2f} nodes={len(p2)}")
 
-    # 3. Pure bridging chasm (no wall/mining confound)
-    w3, h3 = generate_bridge_world(size_x=50, size_y=20, size_z=20, seed=2)
-    s3 = (2, standing_y(h3, 2, 10), 10)
-    g3 = (47, standing_y(h3, 47, 10), 10)
-    p3, c3, a3, e3 = weighted_astar(w3, s3, g3, blocks_available=20, epsilon=1.5)
-    scenarios["bridge_chasm"] = export_scenario(w3, p3, a3, s3, g3, c3, e3)
-    print(f"bridge_chasm: cost={c3:.2f} nodes={len(p3)}")
-
-    # 4. Replanning under limited visibility (discovers the wall gap live)
-    result = replanning_run(w2, s2, g2, blocks_available=10, reveal_radius=6, epsilon=1.5)
-    scenarios["replanning_wall"] = export_scenario(
-        w2, result["executed_path"], result["executed_actions"], s2, g2,
-        cost="n/a (executed, not planned)",
-        expansions=sum(r["expansions"] for r in result["replans"]),
-        replans=[{"at": list(r["at"]), "reason": r["reason"]} for r in result["replans"]],
-    )
-    print(f"replanning_wall: steps={len(result['executed_path'])} replans={len(result['replans'])}")
-
     # 5. Cave shortcut where mining a short plug beats a long detour
     w4, h4 = generate_cave_shortcut_world(
         size_x=60, size_y=20, size_z=80, wall_thickness=6,
@@ -389,55 +370,6 @@ def build_all_scenarios(mca_files=None):
     scenarios["tunnel_vs_bridge"] = export_scenario(w6, p6, a6, s6, g6, c6, e6)
     print(f"tunnel_vs_bridge: cost={c6:.2f} nodes={len(p6)}")
 
-    # 8. Boat-crawl vs normal 2-tall mining through a thick stone wall
-    sx, sy, sz = 30, 10, 8
-    world_crawl = np.full((sx, sy, sz), AIR, dtype=np.int8)
-    ground_h = 3
-    world_crawl[:, 0:ground_h, :] = DIRT
-    wall_top = ground_h + 5
-    world_crawl[10:20, 0:wall_top, :] = STONE
-    start_c, goal_c = (5, 3, 4), (25, 3, 4)
-    path_c, cost_c, actions_c, exp_c = weighted_astar(world_crawl, start_c, goal_c, blocks_available=10, epsilon=1.0)
-    scenarios["boat_crawl_demo"] = export_scenario(world_crawl, path_c, actions_c, start_c, goal_c, cost_c, exp_c)
-    print(f"boat_crawl_demo: cost={cost_c:.2f} nodes={len(path_c)}")
-
-    # 9. Lava lake over bedrock -- bridging (climbing above the surface) is the only option
-    sx, sy, sz = 30, 10, 5
-    world_lava = np.full((sx, sy, sz), AIR, dtype=np.int8)
-    ground_h = 3
-    world_lava[:, 0:ground_h, :] = DIRT
-    lake_x0, lake_x1 = 10, 20
-    world_lava[lake_x0:lake_x1, 0:ground_h, :] = BEDROCK
-    world_lava[lake_x0:lake_x1, ground_h:ground_h + 2, :] = LAVA
-    start_l, goal_l = (5, 3, 2), (25, 3, 2)
-    path_l, cost_l, actions_l, exp_l = weighted_astar(world_lava, start_l, goal_l, blocks_available=15, epsilon=1.0)
-    scenarios["lava_lake_demo"] = export_scenario(world_lava, path_l, actions_l, start_l, goal_l, cost_l, exp_l)
-    print(f"lava_lake_demo: cost={cost_l:.2f} nodes={len(path_l)}")
-
-    # 10. Clean parkour jump over a 6-wide chasm (within the 7-block max range)
-    sx, sy, sz = 30, 10, 5
-    world_pk = np.full((sx, sy, sz), AIR, dtype=np.int8)
-    ground_h = 3
-    world_pk[:, 0:ground_h, :] = DIRT
-    world_pk[10:16, :, :] = AIR
-    start_p, goal_p = (5, 3, 2), (25, 3, 2)
-    path_p, cost_p, actions_p, exp_p = weighted_astar(world_pk, start_p, goal_p, blocks_available=10, epsilon=1.0)
-    scenarios["parkour_demo"] = export_scenario(world_pk, path_p, actions_p, start_p, goal_p, cost_p, exp_p)
-    print(f"parkour_demo: cost={cost_p:.2f} nodes={len(path_p)}")
-
-    # 11. Parkour trajectory blocked by a wall -- must mine/bridge around, can't jump through it
-    sx, sy, sz = 20, 10, 5
-    world_block = np.full((sx, sy, sz), AIR, dtype=np.int8)
-    ground_h = 3
-    world_block[:, 0:ground_h, :] = DIRT
-    world_block[10:15, :, :] = AIR
-    world_block[15:20, 0:ground_h, :] = DIRT
-    world_block[12, ground_h:ground_h + 4, :] = STONE
-    start_b, goal_b = (9, 3, 2), (18, 3, 2)
-    path_b, cost_b, actions_b, exp_b = weighted_astar(world_block, start_b, goal_b, blocks_available=10, epsilon=1.0)
-    scenarios["parkour_blocked_demo"] = export_scenario(world_block, path_b, actions_b, start_b, goal_b, cost_b, exp_b)
-    print(f"parkour_blocked_demo: cost={cost_b:.2f} nodes={len(path_b)}")
-
     if mca_files:
         add_real_terrain_scenarios(scenarios, mca_files)
 
@@ -448,54 +380,59 @@ def build_html(scenarios, output_path="pathfind_viz_multi.html"):
     viz_data = json.dumps(scenarios)
 
     scenario_labels = {
-        "mixed_terrain": "Mixed terrain",
-        "giant_wall": "Giant wall (find gap)",
-        "bridge_chasm": "Bridging chasm",
-        "replanning_wall": "Replanning (limited sight)",
-        "cave_shortcut_wins": "Cave shortcut (mining wins)",
-        "detour_wins": "Cave shortcut (detour wins)",
-        "tunnel_vs_bridge": "Tunnel vs bridge (tax demo)",
-        "boat_crawl_demo": "Boat crawl vs 2-tall mine",
-        "lava_lake_demo": "Lava lake (bridge only)",
-        "parkour_demo": "Parkour (long jump)",
-        "parkour_blocked_demo": "Parkour (blocked by wall)",
+        "mixed_terrain": "Mixed Terrain",
+        "giant_wall": "Giant Wall",
+        "cave_shortcut_wins": "Mining Wins",
+        "detour_wins": "Detour Wins",
+        "tunnel_vs_bridge": "Tunnel vs Bridge",
     }
+    scenario_groups = {k: "synthetic" for k in scenario_labels}
     # Real-terrain scenario keys are derived per-region at discovery time
     # (see _region_key: "real_<folder>_<r.X.Z>"), so they can't be listed
-    # statically above -- auto-label anything not already named, in a
-    # readable "Real Nether: folder/r.X.Z" form, sorted for a stable order.
+    # statically above -- auto-label anything not already named, as a short
+    # "Bastion: <folder>" form (folder alone is enough to disambiguate since
+    # each folder contributes at most one curated region file here).
     for key in sorted(scenarios):
         if key not in scenario_labels:
             label = key
             if key.startswith("real_"):
                 rest = key[len("real_"):]
-                if "_r_" in rest:
-                    folder, region = rest.split("_r_", 1)
-                    label = f"Real Nether: {folder}/r.{region.replace('neg', '-').replace('_', '.')}"
-                else:
-                    label = f"Real Nether: {rest}"
+                folder = rest.split("_r_", 1)[0] if "_r_" in rest else rest
+                label = f"Bastion: {folder}"
             scenario_labels[key] = label
+            scenario_groups[key] = "real"
     scenario_order = [k for k in scenario_labels if k in scenarios]
 
     template_head = """<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
-<title>MC pathfinding - multi-scenario 3D voxel A* visualization</title>
+<title>Bastion Pathfinder Demo</title>
 <style>
   html, body { margin:0; padding:0; background:#0a0a0a; overflow:hidden; font-family: -apple-system, "Segoe UI", sans-serif; }
   #canvas-wrap { position: fixed; inset: 0; }
   #tabs {
-    position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 11;
-    display: flex; flex-wrap: wrap; gap: 4px; background: rgba(15,15,15,0.9); border: 1px solid rgba(0,229,255,0.3);
-    border-radius: 8px; padding: 4px; max-width: 90vw; justify-content: center;
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 11;
+    display: flex; align-items: center; gap: 10px; background: rgba(13,15,18,0.92);
+    border: 1px solid rgba(0,229,255,0.22); box-shadow: 0 6px 24px rgba(0,0,0,0.4);
+    border-radius: 10px; padding: 6px; max-width: 92vw; backdrop-filter: blur(6px);
   }
+  #tabs .group { display: flex; align-items: center; gap: 3px; }
+  #tabs .group-label {
+    font-size: 9px; letter-spacing: 0.08em; color: #55606e; text-transform: uppercase;
+    padding: 0 8px 0 6px; font-weight: 600; white-space: nowrap;
+  }
+  #tabs .divider { width: 1px; align-self: stretch; background: rgba(255,255,255,0.1); margin: 4px 2px; }
   #tabs button {
-    background: transparent; border: none; color: #8899aa; font-size: 11px;
-    padding: 6px 10px; border-radius: 6px; cursor: pointer; white-space: nowrap;
+    background: transparent; border: 1px solid transparent; color: #8fa0b3; font-size: 12px;
+    padding: 7px 12px; border-radius: 7px; cursor: pointer; white-space: nowrap;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
   }
-  #tabs button.active { background: rgba(0,229,255,0.18); color: #00e5ff; }
-  #tabs button:hover:not(.active) { color: #cddde8; }
+  #tabs button.active {
+    background: rgba(0,229,255,0.14); color: #00e5ff; border-color: rgba(0,229,255,0.35);
+    box-shadow: inset 0 0 0 1px rgba(0,229,255,0.08);
+  }
+  #tabs button:hover:not(.active) { color: #e4edf5; background: rgba(255,255,255,0.05); }
   #hud {
     position: fixed; top: 60px; left: 12px; z-index: 10;
     background: rgba(15,15,15,0.85); border: 1px solid rgba(0,229,255,0.35);
@@ -561,6 +498,8 @@ const SCENARIOS = """
 
 const SCENARIO_LABELS = """ + json.dumps(scenario_labels) + """;
 const SCENARIO_ORDER = """ + json.dumps(scenario_order) + """;
+const SCENARIO_GROUPS = """ + json.dumps(scenario_groups) + """;
+const GROUP_LABELS = { synthetic: "Synthetic", real: "Real Bastion Terrain" };
 
 const BLOCK_COLORS = { 1: 0x6b4a2f, 2: 0x8a8a8a, 3: 0x1a0a2e, 4: 0x2b2b2b, 5: 0xff4500 };
 const ACTION_COLORS = {
@@ -581,7 +520,6 @@ let replanMarkers = [];
 
 function initThree() {
   scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x0a0a0a, 40, 180);
 
   camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 600);
 
@@ -788,12 +726,30 @@ function showStep(n) {
 
 function setupUI() {
   const tabs = document.getElementById('tabs');
+  let lastGroup = null;
+  let groupEl = null;
   SCENARIO_ORDER.forEach(key => {
+    const groupName = SCENARIO_GROUPS[key];
+    if (groupName !== lastGroup) {
+      if (lastGroup !== null) {
+        const divider = document.createElement('div');
+        divider.className = 'divider';
+        tabs.appendChild(divider);
+      }
+      groupEl = document.createElement('div');
+      groupEl.className = 'group';
+      const label = document.createElement('span');
+      label.className = 'group-label';
+      label.textContent = GROUP_LABELS[groupName] || groupName;
+      groupEl.appendChild(label);
+      tabs.appendChild(groupEl);
+      lastGroup = groupName;
+    }
     const btn = document.createElement('button');
     btn.textContent = SCENARIO_LABELS[key];
     btn.dataset.key = key;
     btn.onclick = () => { stopPlayback(); loadScenario(key); };
-    tabs.appendChild(btn);
+    groupEl.appendChild(btn);
   });
 
   const slider = document.getElementById('step-slider');

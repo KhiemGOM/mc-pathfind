@@ -54,15 +54,18 @@ public final class WeightedAStar {
     private boolean[] closed;     // indexed by state id
     private IntIdOpenHeap heap;
     private AirPotential airPotential;
+    private AirPotential hybridAirPotential;
+    private StoneDensityField hybridDensityField;
 
     /**
      * Which MINE prune to use, if any -- kept as a simple static toggle so
-     * the two independent pruning strategies (AirPotential's chunk-BFS
-     * novelty signal, vs. this simpler Manhattan-distance-to-goal check)
+     * the independent pruning strategies (AirPotential's chunk-BFS novelty
+     * signal, MANHATTAN-distance-to-goal, NEAREST_AIR's local proximity
+     * check, and HYBRID's density-gated combination of the first and third)
      * can be A/B'd without changing search()'s public signature. NONE
      * restores the pre-AirPotential, pre-Manhattan baseline behavior.
      */
-    public enum MinePruneMode { NONE, AIR_POTENTIAL, MANHATTAN }
+    public enum MinePruneMode { NONE, AIR_POTENTIAL, MANHATTAN, NEAREST_AIR, HYBRID }
     public static MinePruneMode minePruneMode = MinePruneMode.AIR_POTENTIAL;
 
     /** Single-point goal, preserved for source compatibility -- delegates to the GoalPoints overload as a 1-element set. */
@@ -99,6 +102,15 @@ public final class WeightedAStar {
             this.airPotential = new AirPotential(field, /* scaleBfs */ 3.0);
         } else {
             this.airPotential = null;
+        }
+
+        if (minePruneMode == MinePruneMode.HYBRID) {
+            AirPotentialField field = AirPotentialField.build(world, start.x(), start.y(), start.z());
+            this.hybridAirPotential = new AirPotential(field, /* scaleBfs */ 3.0);
+            this.hybridDensityField = StoneDensityField.build(world);
+        } else {
+            this.hybridAirPotential = null;
+            this.hybridDensityField = null;
         }
 
         long startState = StateCodec.pack(start.x(), start.y(), start.z(), blocksAvailable, false);
@@ -243,7 +255,9 @@ public final class WeightedAStar {
 
         for (int d = 0; d < 8; d++) {
             EdgeRules.horizontalEdges(world, x, y, z, blocks, crawling, EdgeRules.DIR_DX[d], EdgeRules.DIR_DZ[d], toolMultiplier,
-                    airPotential, minePruneMode == MinePruneMode.MANHATTAN, goal, consumer);
+                    airPotential, minePruneMode == MinePruneMode.MANHATTAN, goal,
+                    minePruneMode == MinePruneMode.NEAREST_AIR,
+                    hybridAirPotential, hybridDensityField, consumer);
         }
         for (int d = 0; d < 8; d++) {
             EdgeRules.climbEdge(world, x, y, z, blocks, EdgeRules.DIR_DX[d], EdgeRules.DIR_DZ[d], consumer);

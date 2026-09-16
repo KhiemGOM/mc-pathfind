@@ -6,7 +6,9 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_REPO_ROOT))
+sys.path.insert(0, str(_REPO_ROOT / "viz"))
 from world import generate_floating_islands_world
 from build_visualization import export_scenario, build_html
 
@@ -23,6 +25,6 @@ scenario = export_scenario(
     path_json["cost"], path_json["expansions"],
 )
 
-out_path = Path(__file__).resolve().parent.parent / "viz_floating_islands.html"
+out_path = _REPO_ROOT / "viz" / "viz_floating_islands.html"
 build_html({"floating_islands": scenario}, output_path=str(out_path))
 print(f"wrote {out_path}")

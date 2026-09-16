@@ -9,7 +9,7 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "viz"))
 from build_visualization import export_scenario, crop_and_export
 from load_wbin import load_wbin
 
@@ -54,7 +54,7 @@ scenarios["real_k1_neg1_0"] = crop_and_export(
 
 from build_visualization import build_html
 
-out_path = Path(__file__).resolve().parent.parent / "viz_final_algo.html"
+out_path = Path(__file__).resolve().parent.parent / "viz" / "viz_final_algo.html"
 build_html(scenarios, output_path=str(out_path))
 
 # build_html auto-labels unknown scenario keys with the key itself (lab_*)

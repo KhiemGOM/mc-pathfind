@@ -3,7 +3,7 @@
 Java port of `../pathfind.py`'s weighted A* search, for raw search-speed
 comparison against the Python baseline. Does NOT port `.mca`/NBT parsing,
 replanning, or visualization -- those stay Python-side. See
-`../export_world_bin.py` for the bridge: it dumps an already-converted world
+`../viz/export_world_bin.py` for the bridge: it dumps an already-converted world
 array to a flat binary file (`.wbin`) this project loads.
 
 ## Modules

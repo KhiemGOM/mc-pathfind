@@ -10,23 +10,67 @@ non-zero.
 import argparse
 import json
 import os
+import sys
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 from build_visualization import (
-    REAL_TERRAIN_EPSILON_LADDER, REAL_TERRAIN_EXPANSION_LADDER, REAL_TERRAIN_MAX_EXPANSIONS,
-    _find_region_route, _region_key, adaptive_chunk_range, build_html,
-    crop_and_export, solve_with_epsilon_ladder,
+    _find_region_route, _region_key, adaptive_chunk_range, build_html, crop_and_export,
 )
 from mca_convert import convert_region
-from pathfind import get_neighbors
+from pathfind import get_neighbors, weighted_astar
 from reachability import walkable_flood_fill
+
+# This script's whole point is STRICT, self-consistent validation (see the
+# module docstring): solve, then independently re-derive and re-check every
+# edge against the same rules. That only means something if both halves use
+# the same model -- so unlike build_visualization.py (which solves through
+# the faster Java port for demo generation), this one deliberately stays on
+# pathfind.py's own weighted_astar for both halves. Java has since diverged
+# from this Python model in real ways (BRIDGE_UP has no Python equivalent;
+# the MINE cost formula was refined in Java only -- see java/README.md and
+# root README.md's pathfind.py note) -- validating a Java-solved path
+# against Python's get_neighbors would spuriously fail on a correct route,
+# not catch a real bug. Real-terrain search difficulty varies wildly enough
+# that a single fixed epsilon is either too tight (blows the budget on hard
+# regions) or needlessly loose on easy ones, hence the small-to-large
+# epsilon/budget ladder below, tried in order until one finds a path.
+REAL_TERRAIN_EPSILON_LADDER = (2.0, 3.5, 5.0, 8.0)
+REAL_TERRAIN_EXPANSION_LADDER = (40_000, 100_000, 200_000, 300_000)
+
+
+def solve_with_epsilon_ladder(world, start, goal, blocks_available=32,
+                               epsilon_ladder=REAL_TERRAIN_EPSILON_LADDER,
+                               max_expansions=REAL_TERRAIN_EXPANSION_LADDER):
+    """Try weighted_astar at each epsilon in epsilon_ladder (ascending),
+    stopping at the first one that finds a path. Returns (path, cost,
+    actions, expansions, epsilon_used, attempts); if every rung fails, path
+    and epsilon_used are None."""
+    attempts = []
+    path = cost = actions = expansions = epsilon_used = None
+    for epsilon, budget in zip(epsilon_ladder, max_expansions):
+        path, cost, actions, expansions = weighted_astar(
+            world, start, goal, blocks_available=blocks_available,
+            epsilon=epsilon, max_expansions=budget,
+        )
+        attempts.append({
+            "epsilon": epsilon, "max_expansions": budget,
+            "expansions": expansions, "found": path is not None,
+        })
+        if path is not None:
+            epsilon_used = epsilon
+            break
+    return path, cost, actions, expansions, epsilon_used, attempts
 
 
 Y_RANGE = (0, 128)
 BLOCKS_AVAILABLE = 32
-MAX_EXPANSIONS = REAL_TERRAIN_MAX_EXPANSIONS
+MAX_EXPANSIONS = REAL_TERRAIN_EXPANSION_LADDER[-1]
 EPSILON_LADDER = REAL_TERRAIN_EPSILON_LADDER
 EXPANSION_LADDER = REAL_TERRAIN_EXPANSION_LADDER
 
@@ -126,14 +170,14 @@ def run_region(mca_file):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mca-dir", default="regions/k1")
+    parser.add_argument("--mca-dir", default=str(_REPO_ROOT / "regions" / "k1"))
     parser.add_argument(
         "--output", default=None,
-        help="defaults to rviz_<mca-dir folder name>.html",
+        help="defaults to <this script's dir>/rviz_<mca-dir folder name>.html",
     )
     parser.add_argument(
         "--report", default=None,
-        help="defaults to rviz_<mca-dir folder name>_report.json",
+        help="defaults to <this script's dir>/rviz_<mca-dir folder name>_report.json",
     )
     parser.add_argument(
         "--workers", type=int, default=None,
@@ -143,12 +187,15 @@ def main():
     args = parser.parse_args()
 
     region_dir = Path(args.mca_dir)
+    here = Path(__file__).resolve().parent
     # Default output names track whatever folder is passed in, so pointing
     # this at a newly-dropped region set (e.g. --mca-dir regions/k2) produces
     # its own rviz_k2.html rather than requiring the k1-specific defaults to
-    # be hand-edited every time a new batch of regions shows up.
-    output = args.output or f"rviz_{region_dir.name}.html"
-    report_path = args.report or f"rviz_{region_dir.name}_report.json"
+    # be hand-edited every time a new batch of regions shows up. Anchored to
+    # this script's own directory (not CWD) so the output lands next to
+    # pathfind_viz_multi.html regardless of where this is invoked from.
+    output = args.output or str(here / f"rviz_{region_dir.name}.html")
+    report_path = args.report or str(here / f"rviz_{region_dir.name}_report.json")
 
     mca_files = sorted(region_dir.glob("*.mca")) if region_dir.is_dir() else []
     if not mca_files:

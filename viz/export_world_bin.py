@@ -9,15 +9,20 @@ in the real integration, block data comes from the live game client, not
 from a region file. This exists purely so the Java search can be benchmarked
 against the same real terrain already used to measure the Python baseline.
 
-Usage:
-    python3 export_world_bin.py regions/k1/r.0.0.mca out/r_0_0.wbin
-    python3 export_world_bin.py regions/k1/r.0.0.mca out/r_0_0.wbin \
+Usage (from the repo root; region path is relative to wherever you run this):
+    python3 viz/export_world_bin.py regions/k1/r.0.0.mca out/r_0_0.wbin
+    python3 viz/export_world_bin.py regions/k1/r.0.0.mca out/r_0_0.wbin \
         --start 30,43,90 --goal 159,39,7 --blocks 32
 """
 
 import argparse
 import struct
+import sys
 from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 from build_visualization import adaptive_chunk_range, _find_region_route
 from mca_convert import convert_region

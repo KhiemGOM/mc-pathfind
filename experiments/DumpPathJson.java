@@ -3,7 +3,12 @@ import dev.mcpathfind.core.io.WorldBinFormat;
 import java.nio.file.Path;
 
 /**
- * Dumps a solved path as JSON: {"path":[[x,y,z,blocks],...],"actions":[...],"cost":N,"expansions":N}
+ * Dumps a solved path as JSON: {"path":[[x,y,z,blocks,crawling],...],"actions":[...],"cost":N,"expansions":N}
+ * crawling is 0/1, matching pathfind.py's 5-element state tuple exactly (x,
+ * y, z, blocks_remaining, crawling) -- needed so Python-side consumers that
+ * re-derive edges via pathfind.get_neighbors (e.g. run_region_viz.py's
+ * independent route validation) can unpack a Java-solved path's states
+ * without the crawling bit going missing and silently defaulting wrong.
  * Usage: DumpPathJson <wbin> [--epsilon E] [--max-expansions N]
  * Defaults (1.5, 8_000_000) match this project's usual practical operating
  * point -- fast enough in the Java port to not need the Python epsilon-
@@ -41,7 +46,8 @@ public class DumpPathJson {
         for (int i = 0; i < r.path().length; i++) {
             if (i > 0) sb.append(",");
             StateCodec.State s = r.path()[i];
-            sb.append("[").append(s.x()).append(",").append(s.y()).append(",").append(s.z()).append(",").append(s.blocksRemaining()).append("]");
+            sb.append("[").append(s.x()).append(",").append(s.y()).append(",").append(s.z()).append(",").append(s.blocksRemaining())
+              .append(",").append(s.crawling() ? 1 : 0).append("]");
         }
         sb.append("],\"actions\":[");
         for (int i = 0; i < r.actions().length; i++) {

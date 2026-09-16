@@ -5,8 +5,8 @@ session. Skips regions with no walkable terrain (matches run_region_viz.py's
 per-region try/except -- e.g. k2's generation-stub-only files) rather than
 aborting the whole batch.
 
-Usage:
-    python3 export_all_regions.py regions/k1 regions/long1 regions/k2 --out-dir java/benchmark/data
+Usage (from the repo root; region paths are relative to wherever you run this):
+    python3 viz/export_all_regions.py regions/k1 regions/long1 regions/k2 --out-dir java/benchmark/data
 """
 
 import argparse
@@ -14,11 +14,13 @@ from pathlib import Path
 
 from export_world_bin import export_world_bin
 
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("region_dirs", nargs="+")
-    parser.add_argument("--out-dir", default="java/benchmark/data")
+    parser.add_argument("--out-dir", default=str(_REPO_ROOT / "java" / "benchmark" / "data"))
     parser.add_argument("--blocks", type=int, default=32)
     args = parser.parse_args()
 

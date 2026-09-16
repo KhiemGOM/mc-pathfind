@@ -18,8 +18,8 @@ way it does, not just what it does.
   `java/` Gradle build; compiled standalone against `core`/`pearl` when
   needed, per the commands in `SESSION_LOG.md`.
 - **`*.py`** -- helper scripts for building the two non-standard
-  visualizations (`viz_final_algo.html`, `viz_floating_islands.html`) and for
-  exporting/loading `.wbin` world dumps and lab-world fixtures outside the
-  main `build_visualization.py` pipeline.
+  visualizations (`viz/viz_final_algo.html`, `viz/viz_floating_islands.html`)
+  and for exporting/loading `.wbin` world dumps and lab-world fixtures
+  outside the main `viz/build_visualization.py` pipeline.
 - **`paths/`, `floating_islands_path.json`** -- small JSON path dumps produced
   by the scripts above, used as inputs to the two non-standard visualizations.

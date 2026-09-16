@@ -15,8 +15,13 @@ __pycache__/
 # Vendored jars -- fetch via Gradle/Maven Central instead (see java/README.md).
 *.jar
 
-# Local Claude Code session state (machine-specific paths, not portable).
-.claude/settings.local.json
+# AI coding-tool state -- local session/agent config, not project content.
+# Always excluded wholesale, not just the obviously-machine-specific parts
+# (e.g. .claude/launch.json is portable and genuinely useful, but tool
+# state directories don't belong in the published tree regardless).
+.claude/
+.cursor/
+.aider*
 
 # Runtime config exported by/for the separate HolyChip bot this pathfinder
 # feeds -- mixes bot-runtime knobs (snapshot/locate/poll settings) that have

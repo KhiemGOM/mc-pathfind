@@ -1,4 +1,4 @@
-"""Minimal .wbin reader -- mirrors export_world_bin.py's header format
+"""Minimal .wbin reader -- mirrors viz/export_world_bin.py's header format
 byte-for-byte, so real-region worlds already exported for the Java
 benchmarks can be loaded back into numpy without touching mca_convert.py
 or the original .mca files again."""

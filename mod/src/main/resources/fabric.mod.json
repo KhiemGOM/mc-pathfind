@@ -1,0 +1,25 @@
+{
+	"schemaVersion": 1,
+	"id": "netherpathfinder",
+	"version": "${version}",
+	"name": "Nether Pathfinder",
+	"description": "Computes and visualizes a route through Nether terrain toward a target (nearest bastion, or explicit coordinates), driven by /pathfind commands.",
+	"authors": [],
+	"license": "MIT",
+	"icon": "assets/netherpathfinder/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"main": [
+			"dev.netherpathfinder.NetherPathfinderMod"
+		],
+		"client": [
+			"dev.netherpathfinder.client.NetherPathfinderModClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

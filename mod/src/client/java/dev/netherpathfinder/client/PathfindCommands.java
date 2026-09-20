@@ -75,6 +75,8 @@ public final class PathfindCommands {
     private static final AtomicReference<Future<?>> ACTIVE_SEARCH = new AtomicReference<>();
     private static PathfinderSettings settings;
 
+    static PathfinderSettings settings() { return settings; }
+
     public static void register() {
         try {
             settings = new PathfinderSettings(FabricLoader.getInstance().getConfigDir()
@@ -106,6 +108,28 @@ public final class PathfindCommands {
                 }))
             .then(literal("bastion")
                 .executes(ctx -> runBastion(ctx.getSource())))
+            .then(literal("xray")
+                // /pathfind xray          -- cycle: off -> falling -> full
+                // /pathfind xray off      -- normal depth-tested route
+                // /pathfind xray falling  -- pieces show through terrain while they fall in, then settle normally
+                // /pathfind xray full     -- the whole route always shows through terrain
+                .executes(ctx -> setXray(ctx.getSource(), null))
+                .then(literal("off").executes(ctx -> setXray(ctx.getSource(), 0)))
+                .then(literal("falling").executes(ctx -> setXray(ctx.getSource(), 1)))
+                .then(literal("on").executes(ctx -> setXray(ctx.getSource(), 1)))
+                .then(literal("full").executes(ctx -> setXray(ctx.getSource(), 2))))
+            .then(literal("demo")
+                // /pathfind demo          -- plan (or replay the cached route) for the current position
+                // /pathfind demo replan   -- ignore the cache and search again
+                // /pathfind demo replay   -- replay the reveal animation of the current route
+                // /pathfind demo clear    -- forget this world's cached routes
+                .executes(ctx -> { NetherDemo.begin(Minecraft.getInstance(), false); return 1; })
+                .then(literal("replan")
+                    .executes(ctx -> { NetherDemo.begin(Minecraft.getInstance(), true); return 1; }))
+                .then(literal("replay")
+                    .executes(ctx -> { NetherDemo.replayCurrent(Minecraft.getInstance()); return 1; }))
+                .then(literal("clear")
+                    .executes(ctx -> { NetherDemo.clearCache(Minecraft.getInstance()); return 1; })))
             .then(literal("config")
                 .executes(ctx -> {
                     ctx.getSource().sendFeedback(Component.literal("[nether-pathfinder] " + settings.describe()));
@@ -191,7 +215,7 @@ public final class PathfindCommands {
     }
 
     /** Probes overlapping bastion cells, then selects the genuinely nearest result by X/Z distance. */
-    private static BlockPos locateNearestBastion(ServerLevel level, BlockPos playerPos) {
+    static BlockPos locateNearestBastion(ServerLevel level, BlockPos playerPos) {
         var bastionKey = ResourceKey.create(Registries.STRUCTURE, Identifier.withDefaultNamespace("bastion_remnant"));
         var bastion = level.registryAccess().lookupOrThrow(Registries.STRUCTURE).get(bastionKey).orElse(null);
         if (bastion == null) return null;
@@ -309,6 +333,24 @@ public final class PathfindCommands {
         sendFeedback(source, message);
     }
 
+    private static int setXray(FabricClientCommandSource source, Integer requested) {
+        int mode = requested != null ? requested : ((int) settings.get("routeThroughWalls") + 1) % 3;
+        try {
+            settings.set("routeThroughWalls", Integer.toString(mode));
+            settings.set("iconThroughWalls", mode == 0 ? "0" : "1");
+        } catch (IOException e) {
+            source.sendFeedback(Component.literal("[nether-pathfinder] " + e.getMessage()));
+            return 0;
+        }
+        String what = switch (mode) {
+            case 0 -> "OFF (normal depth-tested route)";
+            case 1 -> "FALLING (pieces show through terrain while they drop in, then settle normally)";
+            default -> "FULL (the whole route always shows through terrain)";
+        };
+        source.sendFeedback(Component.literal("[nether-pathfinder] see-through mode: " + what));
+        return 1;
+    }
+
     private static int setConfig(FabricClientCommandSource source, String key, String value) {
         try {
             settings.set(key, value);
@@ -320,7 +362,7 @@ public final class PathfindCommands {
         }
     }
 
-    private static void applySettings(PathfinderSettings.Snapshot settings) {
+    static void applySettings(PathfinderSettings.Snapshot settings) {
         EdgeRules.SPRINT_SPEED = settings.sprintSpeed();
         EdgeRules.SPEED_BRIDGE_SPEED = settings.bridgeSpeed();
         EdgeRules.PLACE_TIME = settings.placeTime();

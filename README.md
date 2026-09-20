@@ -160,9 +160,13 @@ port now, not `pathfind.py`.
 ## Playable mod
 
 [`mod/`](mod/) is Nether Pathfinder, a Fabric client mod that wraps this same
-engine into an actual in-game tool -- `/pathfind goto <x> <y> <z>` computes
-and draws a route for you to follow (command-driven, Baritone-style; nothing
-runs automatically). See [`mod/README.md`](mod/README.md).
+engine into an in-game tool. **It is a beta built for a demo**: you can try it
+in game, but the integration is rough. It plans and draws a route with an icon
+per action (`/pathfind goto <x> <y> <z>`, or arrive in the Nether in
+single-player and it plans a route to the nearest bastion and plays a reveal
+animation). It never moves you: it is a planner, not an automation bot like
+Baritone, and could feed one as a global planner. See
+[`mod/README.md`](mod/README.md).
 
 ## Project layout
 

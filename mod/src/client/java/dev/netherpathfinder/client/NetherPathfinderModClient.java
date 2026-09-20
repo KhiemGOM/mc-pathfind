@@ -9,5 +9,6 @@ public class NetherPathfinderModClient implements ClientModInitializer {
     public void onInitializeClient() {
         PathfindCommands.register();
         RouteRenderer.register();
+        NetherDemo.register();
     }
 }

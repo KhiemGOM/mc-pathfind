@@ -4,7 +4,11 @@ import dev.netherpathfinder.engine.BlockType;
 import dev.netherpathfinder.engine.World;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.LevelChunk;
+
+import java.util.Map;
 
 /**
  * Reads a cube of real terrain around an origin into the engine's flat
@@ -41,10 +45,48 @@ public final class TerrainCapture {
         public int toWorldZ(int localZ) { return localZ + originZ; }
     }
 
+    /** One loaded chunk's block reads; null from BlockSource.chunk means "not loaded" (captured as UNKNOWN). */
+    public interface ChunkView {
+        BlockState state(BlockPos pos);
+    }
+
+    /** Where blocks come from: the client's loaded chunks, or chunks the integrated server generated. */
+    public interface BlockSource {
+        int minY();
+        int maxY();
+        ChunkView chunk(int chunkX, int chunkZ);
+    }
+
+    public static BlockSource of(ClientLevel level) {
+        return new BlockSource() {
+            public int minY() { return level.getMinY(); }
+            public int maxY() { return level.getMaxY(); }
+            public ChunkView chunk(int cx, int cz) {
+                return level.hasChunk(cx, cz) ? level::getBlockState : null;
+            }
+        };
+    }
+
+    /** Fully generated server chunks held by the caller; reads never touch the server thread. */
+    public static BlockSource of(Map<Long, LevelChunk> chunks, int minY, int maxY) {
+        return new BlockSource() {
+            public int minY() { return minY; }
+            public int maxY() { return maxY; }
+            public ChunkView chunk(int cx, int cz) {
+                LevelChunk chunk = chunks.get(ChunkPos.pack(cx, cz));
+                return chunk == null ? null : chunk::getBlockState;
+            }
+        };
+    }
+
     /** Captures a column spanning the level's full build height, horizontalRadius blocks out on X/Z. */
     public static Result capture(ClientLevel level, BlockPos centerPos, int horizontalRadius) {
-        int fullVerticalRadius = level.getMaxY() - level.getMinY();
-        return capture(level, centerPos, horizontalRadius, fullVerticalRadius);
+        return capture(of(level), centerPos, horizontalRadius);
+    }
+
+    public static Result capture(BlockSource source, BlockPos centerPos, int horizontalRadius) {
+        int fullVerticalRadius = source.maxY() - source.minY();
+        return capture(source, centerPos, horizontalRadius, fullVerticalRadius);
     }
 
     /**
@@ -53,8 +95,12 @@ public final class TerrainCapture {
      * build-height range).
      */
     public static Result capture(ClientLevel level, BlockPos centerPos, int horizontalRadius, int verticalRadius) {
-        int minY = level.getMinY();
-        int maxYExclusive = level.getMaxY();
+        return capture(of(level), centerPos, horizontalRadius, verticalRadius);
+    }
+
+    public static Result capture(BlockSource source, BlockPos centerPos, int horizontalRadius, int verticalRadius) {
+        int minY = source.minY();
+        int maxYExclusive = source.maxY();
 
         int originX = centerPos.getX() - horizontalRadius;
         int originZ = centerPos.getZ() - horizontalRadius;
@@ -74,16 +120,16 @@ public final class TerrainCapture {
             for (int lz = 0; lz < sizeZ; lz++) {
                 int worldZ = originZ + lz;
                 int chunkZ = worldZ >> 4;
-                boolean chunkLoaded = level.hasChunk(chunkX, chunkZ);
+                ChunkView view = source.chunk(chunkX, chunkZ);
                 for (int ly = 0; ly < sizeY; ly++) {
                     int worldY = originY + ly;
                     int index = (lx * sizeY + ly) * sizeZ + lz;
-                    if (!chunkLoaded) {
+                    if (view == null) {
                         blocks[index] = (byte) BlockType.UNKNOWN;
                         continue;
                     }
                     cursor.set(worldX, worldY, worldZ);
-                    BlockState state = level.getBlockState(cursor);
+                    BlockState state = view.state(cursor);
                     blocks[index] = (byte) BlockClassifier.classify(state);
                 }
             }
